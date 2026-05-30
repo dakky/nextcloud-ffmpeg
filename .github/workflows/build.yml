@@ -19,33 +19,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Restore upstream SHA cache
-        id: cache-sha
-        uses: actions/cache@v4
-        with:
-          path: .last_upstream_sha
-          key: upstream-sha-nextcloud-apache
-
-      - name: Check upstream image SHA
-        id: checksha
-        run: |
-          UPSTREAM_IMAGE="nextcloud:apache"
-          SHA_FILE=".last_upstream_sha"
-          DIGEST=$(docker manifest inspect "$UPSTREAM_IMAGE" | jq -r '.manifests[] | select(.platform.architecture=="amd64" and .platform.os=="linux") | .digest')
-          echo "Upstream amd64 image digest: $DIGEST"
-          SHOULD_BUILD=true
-          if [ -f "$SHA_FILE" ]; then
-            LAST_DIGEST=$(cat "$SHA_FILE")
-            if [ "$DIGEST" = "$LAST_DIGEST" ]; then
-              echo "No change in upstream image. Skipping build."
-              SHOULD_BUILD=false
-            fi
-          fi
-          echo "$DIGEST" > "$SHA_FILE"
-          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
-
       - name: Log in to GHCR
-        if: steps.checksha.outputs.should_build == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -53,7 +27,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
-        if: steps.checksha.outputs.should_build == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
